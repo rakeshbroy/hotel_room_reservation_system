@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hotel Room Reservation System</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        body {
+            background-color: #f5f7fb;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        /* Toolbar/Controls Styling */
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            background: white;
+            padding: 15px 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            align-items: center;
+        }
+        .controls input {
+            width: 120px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+            font-size: 14px;
+        }
+        .btn-book { background-color: #007bff; color: white; }
+        .btn-book:hover { background-color: #0056b3; }
+        .btn-reset { background-color: #dc3545; color: white; }
+        .btn-reset:hover { background-color: #bd2130; }
+        .btn-random { background-color: #28a745; color: white; }
+        .btn-random:hover { background-color: #218838; }
+
+        /* Hotel Layout Visualizer */
+        .hotel-container {
+            display: flex;
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 6px 12px rgba(0,0,0,0.08);
+            gap: 20px;
+            min-width: 650px;
+        }
+        .shaft {
+            width: 80px;
+            background: #e9ecef;
+            border: 2px dashed #adb5bd;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            font-size: 12px;
+            font-weight: bold;
+            color: #495057;
+        }
+        .building {
+            display: flex;
+            flex-direction: column-reverse; /* Floor 10 on top */
+            gap: 10px;
+            flex-grow: 1;
+        }
+        .floor-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .floor-label {
+            width: 70px;
+            font-weight: bold;
+            color: #6c757d;
+            font-size: 13px;
+        }
+        .rooms-list {
+            display: flex;
+            gap: 8px;
+        }
+        .room {
+            width: 45px;
+            height: 45px;
+            border: 2px solid #6c757d;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: bold;
+            background-color: #fff;
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.2s;
+        }
+        .room.available {
+            background-color: #e2f0d9;
+            border-color: #70ad47;
+            color: #385723;
+        }
+        .room.occupied {
+            background-color: #fce4d6;
+            border-color: #c65911;
+            color: #833c0c;
+        }
+        .room.selected-now {
+            background-color: #fff2cc;
+            border-color: #ffc000;
+            color: #7f6000;
+            transform: scale(1.05);
+            box-shadow: 0 0 8px rgba(255, 192, 0, 0.6);
+        }
+        
+        /* Status Display */
+        .status-message {
+            margin-top: 20px;
+            font-size: 16px;
+            font-weight: 500;
+            color: #333;
+            min-height: 24px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Hotel Room Reservation System</h1>
+
+    <div class="controls">
+        <input type="number" id="roomCount" min="1" max="5" placeholder="No of Rooms (1-5)">
+        <button class="btn btn-book" onclick="executeBooking()">Book</button>
+        <button class="btn btn-reset" onclick="resetHotel()">Reset</button>
+        <button class="btn btn-random" onclick="generateRandomOccupancy()">Random</button>
+    </div>
+
+    <div class="hotel-container">
+        <div class="shaft">Stairs<br>&<br>Lift</div>
+        <div class="building" id="buildingLayout"></div>
+    </div>
+
+    <div class="status-message" id="statusMessage"></div>
+
+    <script>
+        const TOTAL_FLOORS = 10;
+        let hotelRooms = []; 
+
+        function initHotel() {
+            hotelRooms = [];
+            
+            for (let f = 1; f <= 9; f++) {
+                for (let p = 1; p <= 10; p++) {
+                    let roomNo = f * 100 + p;
+                    hotelRooms.push({ roomNo, floor: f, pos: p, occupied: false });
+                }
+            }
+            
+            for (let p = 1; p <= 7; p++) {
+                let roomNo = 1000 + p;
+                hotelRooms.push({ roomNo, floor: 10, pos: p, occupied: false });
+            }
+            renderVisualizer();
+            document.getElementById('statusMessage').innerText = "Hotel initialized. All rooms available.";
+        }
+
+        
+        function calculateTravelTime(roomA, roomB) {
+            const verticalCost = 2 * Math.abs(roomA.floor - roomB.floor);
+            let horizontalCost = 0;
+            
+            if (roomA.floor === roomB.floor) {
+                horizontalCost = Math.abs(roomA.pos - roomB.pos);
+            } else {
+                horizontalCost = (roomA.pos - 1) + (roomB.pos - 1);
+            }
+            return verticalCost + horizontalCost;
+        }
+
+        
+        function getCombinationCost(combination) {
+            let maxCost = 0;
+            for (let i = 0; i < combination.length; i++) {
+                for (let j = i + 1; j < combination.length; j++) {
+                    const cost = calculateTravelTime(combination[i], combination[j]);
+                    if (cost > maxCost) maxCost = cost;
+                }
+            }
+            return maxCost;
+        }
+
+        
+        function getCombinations(array, k) {
+            const result = [];
+            function helper(start, combo) {
+                if (combo.length === k) {
+                    result.push([...combo]);
+                    return;
+                }
+                for (let i = start; i < array.length; i++) {
+                    combo.push(array[i]);
+                    helper(i + 1, combo);
+                    combo.pop();
+                }
+            }
+            helper(0, []);
+            return result;
+        }
+
+        
+        function findOptimalRooms(count) {
+            const availableRooms = hotelRooms.filter(r => !r.occupied);
+            if (availableRooms.length < count) return null;
+
+            // Priority 1: Check same-floor availability
+            let sameFloorSolutions = [];
+            for (let f = 1; f <= TOTAL_FLOORS; f++) {
+                const floorAvail = availableRooms.filter(r => r.floor === f);
+                if (floorAvail.length >= count) {
+                    const combos = getCombinations(floorAvail, count);
+                    combos.forEach(c => {
+                        sameFloorSolutions.push({
+                            rooms: c,
+                            cost: getCombinationCost(c),
+                            isSameFloor: true
+                        });
+                    });
+                }
+            }
+
+            if (sameFloorSolutions.length > 0) {
+                sameFloorSolutions.sort((a, b) => a.cost - b.cost || a.rooms[0].pos - b.rooms[0].pos);
+                return sameFloorSolutions[0].rooms;
+            }
+
+            // Priority 2: Multi-floor search optimization
+            const crossFloorCombos = getCombinations(availableRooms, count);
+            let bestCrossSolution = null;
+            let minCrossCost = Infinity;
+
+            crossFloorCombos.forEach(combo => {
+                const cost = getCombinationCost(combo);
+                if (cost < minCrossCost) {
+                    minCrossCost = cost;
+                    bestCrossSolution = combo;
+                } else if (cost === minCrossCost) {
+                    if (combo[0].floor < bestCrossSolution[0].floor || combo[0].pos < bestCrossSolution[0].pos) {
+                        bestCrossSolution = combo;
+                    }
+                }
+            });
+
+            return bestCrossSolution;
+        }
+
+        
+        function executeBooking() {
+            const input = document.getElementById('roomCount');
+            const count = parseInt(input.value);
+
+            if (isNaN(count) || count < 1 || count > 5) {
+                alert("Please enter a valid number of rooms between 1 and 5.");
+                return;
+            }
+
+            renderVisualizer();
+
+            const selectedRooms = findOptimalRooms(count);
+
+            if (!selectedRooms) {
+                document.getElementById('statusMessage').innerHTML = "<span style='color:red;'>Booking failed: Not enough connected rooms available.</span>";
+                return;
+            }
+
+            const totalCost = getCombinationCost(selectedRooms);
+
+            selectedRooms.forEach(room => {
+                const target = hotelRooms.find(r => r.roomNo === room.roomNo);
+                target.occupied = true;
+                const element = document.getElementById(`room-${room.roomNo}`);
+                element.className = "room selected-now";
+            });
+
+            document.getElementById('statusMessage').innerHTML = `Successfully booked: <strong>${selectedRooms.map(r => r.roomNo).join(', ')}</strong> (Travel Time Cost: ${totalCost} mins)`;
+            input.value = '';
+        }
+
+        function generateRandomOccupancy() {
+            hotelRooms.forEach(room => {
+                room.occupied = Math.random() < 0.4; // ~40% occupancy rate allocation
+            });
+            renderVisualizer();
+            document.getElementById('statusMessage').innerText = "Random occupancy matrix generated.";
+        }
+
+        function resetHotel() {
+            initHotel();
+        }
+
+        function renderVisualizer() {
+            const container = document.getElementById('buildingLayout');
+            container.innerHTML = '';
+
+            for (let f = 1; f <= TOTAL_FLOORS; f++) {
+                const floorRow = document.createElement('div');
+                floorRow.className = 'floor-row';
+
+                const label = document.createElement('div');
+                label.className = 'floor-label';
+                label.innerText = `Floor ${f}`;
+                floorRow.appendChild(label);
+
+                const roomsList = document.createElement('div');
+                roomsList.className = 'rooms-list';
+
+                const floorRooms = hotelRooms.filter(r => r.floor === f);
+                floorRooms.forEach(room => {
+                    const roomDiv = document.createElement('div');
+                    roomDiv.id = `room-${room.roomNo}`;
+                    roomDiv.className = `room ${room.occupied ? 'occupied' : 'available'}`;
+                    roomDiv.innerText = room.roomNo;
+                    
+                    roomDiv.onclick = () => {
+                        room.occupied = !room.occupied;
+                        renderVisualizer();
+                    };
+
+                    roomsList.appendChild(roomDiv);
+                });
+
+                floorRow.appendChild(roomsList);
+                container.appendChild(floorRow);
+            }
+        }
+
+        window.onload = initHotel;
+    </script>
+</body>
+</html>
